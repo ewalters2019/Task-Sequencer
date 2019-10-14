@@ -1,12 +1,11 @@
 /*
- * Code started on 11SEP19 by walters_w_eric@hotmail.com
  * 
  * Compile: gcc -lpthread input.c -o output or gcc -pthread input.c -o output
  * 
  * TODO:
  * 
  * 1. Design FIFO api
- * 2. Add "rake" functions
+ * 2. Add other functions, lol
  * 3. Add signal handlers for cleanup
  * 4. Add cleanup functionality
  * 5. Complete documentation
@@ -24,8 +23,6 @@
 #include <sys/stat.h>   // mkfifo()
 #include <errno.h>     
 #include <sys/types.h>  // primitive sys data types 
-
-#include "cJSON.h"
 
 
 int t_index; 
@@ -51,52 +48,12 @@ struct ts_task{
 } **t_list;
 
 
-struct t_params{
-    
-        struct ts_task* task;
-        
-        void (*routine)(void* storage);
-};
-
-struct t_storage{
- 
-        char* JSON;
-};
-
-
 ///////////////////////////////////////////////////////////////////////////////
 
 
 void ts_wait(){
     
     while(t_interupt){ }
-}
-
-
-void ts_task(void* args){
-    
-    
-    struct t_params* ts = args;
- 
-    ts->task->storage = (struct t_storage*)calloc(1, sizeof(struct t_storage));
-
-    
-    while(1){
-          
-        sem_wait(&ts->task->lock);       
-        
-        ts_wait();
-
-            t_current = ts->task->index;
-            
-            (*ts->routine)(ts->task->storage);
-            
-            //sleep(1);
-
-            sem_post(&ts_lock);       
-            
-    }
-    
 }
 
 
@@ -176,7 +133,6 @@ int ts_del_task(char* name){
   
     ts_pause();
     
-
     int target = 0;
     int found = 0;
 
@@ -189,7 +145,7 @@ int ts_del_task(char* name){
     
     if(found){   
 
-        if((target == 0) && (t_index == 1)){
+        if((target == 0) && (t_index == 1)){ // only one task running
         
             pthread_cancel(t_list[target]->id);
 
@@ -202,7 +158,7 @@ int ts_del_task(char* name){
             t_index--;
 
         
-        }else if(target == 0){
+        }else if(target == 0){ // del 1st task, but > 1 task running
         
             struct ts_task** temp = (struct ts_task**)calloc((t_index + 1), sizeof(struct ts_task*));
         
@@ -220,7 +176,7 @@ int ts_del_task(char* name){
             t_index--;
 
 
-        }else if(target == (t_index - 1)){
+        }else if(target == (t_index - 1)){ // del last task
         
 
             t_list[target] = NULL;
@@ -230,7 +186,7 @@ int ts_del_task(char* name){
             t_index--;
 
     
-        }else{
+        }else{ // del task that is somewhere besides start or end
 
             struct ts_task** temp = (struct ts_task**)calloc((t_index + 1), sizeof(struct ts_task*));
 
@@ -295,20 +251,11 @@ void ts_add_task(char* name, void* routine, int input, int output){
     
     if(output){ ts_get_fifo_out(task); }
 
-    
-    //if(t_index > 0) { t_list[(t_index - 1)]->next = (void*)task; }
-    
-    //task->next = t_list[0];
-    
-    
-    args = (struct t_params*)calloc(1, sizeof(struct t_params));
-
-    args->task = task;
-    args->routine = (void*)routine;
-    
+  
     sem_init(&task->lock,0,0);  
 
-    pthread_create(&task->id, NULL, (void*)ts_task, (void*)args);
+
+    pthread_create(&task->id, NULL, (void*)routine, (void*)task);
     
     pthread_detach(task->id);
     
@@ -321,65 +268,206 @@ void ts_add_task(char* name, void* routine, int input, int output){
 }
 
 
-/////////////////////////////// TASKS /////////////////////////////////////////
-
-
-
-void dummy(void* store){
+void ts_write(int output, char* buffer){
     
-    struct t_storage* storage = store;
-    
-    storage->JSON = "DUMMY";
-    
-    printf("\nRunning task: %s\n\n", storage->JSON);  
-
+    write(output, buffer, strlen(buffer));
 }
 
-void task1(void* storage){
-     
-    printf("Running task: 1\n\n");  
 
+void ts_read(int input){
+    
+    char buffer[1024];
+
+    read(input, buffer, sizeof(buffer)); 
+ 
 }
 
-void task2(void* storage){
-    
-    printf("Running task: 2\n\n");
 
+/////////////////////////////// EXAMPLE TASKS /////////////////////////////////
+
+
+void task4(void* args){
+    
+    struct ts_task* task = args;
+    
+ 	    
+ 	/* initialization code goes here */    
+ 	
+ 	
+	while(1){
+          
+    	sem_wait(&task->lock);       
+        
+        ts_wait();
+
+        t_current = task->index;
+            
+			
+			printf("Running task: 4\n");  	
+			
+			/*
+			  DO WORK HERE 
+			  
+			  Doesn't have to be inside a loop if only 
+			  need it for 1 call, but the work doing done 
+			  needs to be right here as the lock design 
+			  requires it!!!
+			
+			*/
+
+        
+
+		sem_post(&ts_lock);       
+    }
+    
 }
 
-void task3(void* storage){
+void task3(void* args){
     
-    printf("Running task: 3\n\n");
+    struct ts_task* task = args;
+    
+ 	    
+ 	/* initialization code goes here */    
+ 	
+ 	
+	while(1){
+          
+    	sem_wait(&task->lock);       
+        
+        ts_wait();
 
+        t_current = task->index;
+            
+			
+			printf("Running task: 3\n");  	
+			
+			/*
+			  DO WORK HERE 
+			  
+			  Doesn't have to be inside a loop if only 
+			  need it for 1 call, but the work doing done 
+			  needs to be right here as the lock design 
+			  requires it!!!
+			
+			*/
+
+        
+        sem_post(&ts_lock);       
+            
+    }
+    
+}
+
+void task2(void* args){
+    
+    struct ts_task* task = args;
+    
+ 	
+ 	/* initialization code goes here */ 
+ 	
+ 	  
+	while(1){
+          
+    	sem_wait(&task->lock);       
+        
+        ts_wait();
+
+        t_current = task->index;
+            
+			
+			printf("Running task: 2\n");  	
+			
+			/*
+			  DO WORK HERE 
+			  
+			  Doesn't have to be inside a loop if only 
+			  need it for 1 call, but the work doing done 
+			  needs to be right here as the lock design 
+			  requires it!!!
+			
+			*/
+
+      	
+      	sem_post(&ts_lock);       
+            
+    }
+    
+}
+
+void task1(void* args){
+    
+    struct ts_task* task = args;
+    
+    
+    /* initialization goes code here */    
+    
+ 	
+	while(1){
+          
+    	sem_wait(&task->lock);       
+        
+        ts_wait();
+
+        t_current = task->index;
+            
+			
+			printf("Running task: 1\n");  	
+			
+			/*
+			  DO WORK HERE 
+			  
+			  Doesn't have to be inside a loop if only 
+			  need it for 1 call, but the work doing done 
+			  needs to be right here as the lock design 
+			  requires it!!!
+			
+			*/
+
+        
+		sem_post(&ts_lock);       
+            
+    }
+    
 }
 
 
 ///////////////////////////////////////////////////////////////////////////////
 
 
-void ts_write(){
+void interface(void* args){
     
-    char buffer[1024];
+	struct ts_task* task = args;
+    
+ 	while(1){
+          
+    	sem_wait(&task->lock);       
+        
+        ts_wait();
 
-    write(t_list[0]->output, buffer, strlen(buffer));
+        t_current = task->index;
+            
+			printf("\n\nRunning interface\n");  	
+			
+			//ts_read(task->input);
+        
+        	/*
+        	
+        	
+        	
+        	*/
+        
+        sem_post(&ts_lock);       
+            
+    }
+    
 }
 
 
-void ts_read(){
-    
-    char buffer[1024];
-
-    read(t_list[0]->input, buffer, sizeof(buffer)); 
- 
-}
-
+///////////////////////////////////////////////////////////////////////////////
 
 
 void ts_main(){
     
-    ts_get_fifo_in(t_list[0]);
-    ts_get_fifo_out(t_list[0]);
-
     
     while(1){ 
 
@@ -391,14 +479,9 @@ void ts_main(){
 
                 sem_wait(&ts_lock);       
 
-                /////////////////
-                
-                    ts_read();
-                    
-                /////////////////
-                
                 sem_post(&t_list[target]->lock);       
-            }   
+                
+			}   
         }
     }
     
@@ -413,7 +496,7 @@ void ts_init(){
         
     sem_init(&ts_lock,0,1);  
         
-    ts_add_task("dummy", &dummy, 0, 0);
+    ts_add_task("interface", &interface, 1, 1);
     
     ts_add_task("task1", &task1, 0, 0);
     ts_add_task("task2", &task2, 0, 0);
@@ -436,3 +519,4 @@ int main(){
     
  return 0;
 }
+
