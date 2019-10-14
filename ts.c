@@ -452,7 +452,16 @@ void interface(void* args){
         
         	/*
         	
-        	
+        		This interface is will be reading from
+        		its fifo for commands that may be written 
+        		to it. As of now, the only functionality
+        		it is to provide is adding and removing tasks.
+        		
+        		Of course, the tasks available have to be predefined,
+        		but they also have input/ouput fifos available for use.
+        		
+        		The fifos will be in ./input and ./output with this 
+        		running in the root directory.
         	
         	*/
         
@@ -519,4 +528,5 @@ int main(){
     
  return 0;
 }
+
 
